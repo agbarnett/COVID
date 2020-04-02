@@ -48,6 +48,18 @@ I1.2.R <- function(age, calTime, duration){
   return(rate)
 }
 
+# I1 to H1 (mild presenting to hospital)
+I1.2.H1 <- function(age, calTime, duration){
+  rate = -log(1-0.02) # probability to rate
+  return(rate)
+}
+
+# H1 to I1 (mild presenting at hospital back to I1)
+H1.2.I1 <- function(age, calTime, duration){
+  rate = ifelse(duration > 1/365.25, Inf, 0) # instant return after 1 day
+  return(rate)
+}
+
 # I2 to R (severe to recovered)
 I2.2.R <- function(age, calTime, duration){
   p2 = (1/DurHosp)*(FracCritical/(FracSevere+FracCritical))
@@ -69,7 +81,7 @@ I3.2.R <- function(age, calTime, duration){
 }
 
 # I3 to D
-I3.2.D <- function(age, calTime, duration=0){
+I3.2.D <- function(age, calTime, duration){
   if(FracCritical==0){
     u=0
     }else{
@@ -79,11 +91,58 @@ I3.2.D <- function(age, calTime, duration=0){
   return(rate)
 }
 
+## exposed to hospital and back
+
+# E to HE
+E.2.HE <- function(age, calTime, duration){
+  daily = -log(1-(presentHOther/qld.pop))/31 # based on Q health hospital presentation data
+  rate = daily * 365
+  return(rate)
+}
+# HE to E
+HE.2.E <- function(age, calTime, duration){
+  rate = ifelse(duration > 1/365.25, Inf, 0) # instant return after 1 day
+  return(rate)
+}
+
+## susceptible to hospital and back
+
+# S to HS
+S.2.HS <- function(age, calTime, duration){
+  daily = -log(1-(presentHOther/qld.pop))/31 # based on Q health hospital presentation data
+  rate = daily * 365
+  return(rate)
+}
+
+# HS to S
+HS.2.S <- function(age, calTime, duration){
+  rate = ifelse(duration > 1/365.25, Inf, 0) # instant return after 1 day
+  return(rate)
+}
+
+## recovered to hospital and back
+
+# R to HR
+R.2.HR <- function(age, calTime, duration){
+  daily = -log(1-(presentHOther/qld.pop))/31 # based on Q health hospital presentation data
+  rate = daily * 365
+  return(rate)
+}
+# HR to R
+HR.2.R <- function(age, calTime, duration){
+  rate = ifelse(duration > 1/365.25, Inf, 0) # instant return after 1 day
+  return(rate)
+}
+
+## exposed to hospital
+
+## mild to hospital
+
 ## long-term annual mortality rates (function of age, same for men and women)
-mortRates <- function(age, calTime, duration=0){
+mortRates <- function(age, calTime, duration){
   a <- 0.00003
   b <- 0.097
   rate <- a*exp(b*age)
-  rate = 0 # for comparing with Alison
+  rate = 0 # ignore deaths
   return(rate)
 }
