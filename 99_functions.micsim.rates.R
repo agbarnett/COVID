@@ -1,6 +1,6 @@
 # functions.micsim.rates.R
 # rate functions for micsim
-# March 2020
+# April 2020
 
 # Definition of (possible) transition rates (that vary along age, calendar time, 
 # and duration). BEWARE: Each function that describes transition rates has to feature
@@ -9,13 +9,14 @@
 
 # susceptible to exposed
 S.2.E <- function(age, calTime, duration){
+  seas = 1 + seas.amp*cos(2*pi*(calTime - seas.phase)/365.25)
   I1 = I.numbers[1]
   I2 = I.numbers[2]
   I3 = I.numbers[3]
   B1 = (b1/N) * 365 # Transmission rate (mild infections)
   b2 = b21 *B1  # Transmission rate (severe infections, relative to mild)
   b3 = b31 *B1  # Transmission rate (critical infections, relative to mild)
-  rate = B1*I1 + b2*I2 + b3*I3
+  rate = (B1*I1 + b2*I2 + b3*I3) * seas
   return(rate)
 }
 
@@ -50,13 +51,13 @@ I1.2.R <- function(age, calTime, duration){
 
 # I1 to H1 (mild presenting to hospital)
 I1.2.H1 <- function(age, calTime, duration){
-  rate = -log(1-0.02) # probability to rate
+  rate = -log(1-daily.prob.mild) # daily probability to rate
   return(rate)
 }
 
 # H1 to I1 (mild presenting at hospital back to I1)
 H1.2.I1 <- function(age, calTime, duration){
-  rate = ifelse(duration > 1/365.25, Inf, 0) # instant return after 1 day
+  rate = ifelse(duration > 0.5/365.25, Inf, 0) # instant return after 1 day
   return(rate)
 }
 
@@ -101,7 +102,7 @@ E.2.HE <- function(age, calTime, duration){
 }
 # HE to E
 HE.2.E <- function(age, calTime, duration){
-  rate = ifelse(duration > 1/365.25, Inf, 0) # instant return after 1 day
+  rate = ifelse(duration > 0.5/365.25, Inf, 0) # instant return after 1 day
   return(rate)
 }
 
@@ -116,7 +117,7 @@ S.2.HS <- function(age, calTime, duration){
 
 # HS to S
 HS.2.S <- function(age, calTime, duration){
-  rate = ifelse(duration > 1/365.25, Inf, 0) # instant return after 1 day
+  rate = ifelse(duration > 0.5/365.25, Inf, 0) # instant return after 1 day
   return(rate)
 }
 
@@ -130,7 +131,7 @@ R.2.HR <- function(age, calTime, duration){
 }
 # HR to R
 HR.2.R <- function(age, calTime, duration){
-  rate = ifelse(duration > 1/365.25, Inf, 0) # instant return after 1 day
+  rate = ifelse(duration > 0.5/365.25, Inf, 0) # instant return after 1 day
   return(rate)
 }
 

@@ -2,6 +2,7 @@
 # run the COVID model using microsimulation based on a model using ODEs
 # version with varying parameters
 # version that looks at the impact on the hospital
+# version with seasonal infection risk
 # lyra version
 # March 2020
 #library(MicSim) # using my slightly modified versions
@@ -23,7 +24,7 @@ if(exists('outfile')==FALSE){outfile = 'data/simresults.RData'}
 # key parameters
 IncubPeriod = 5 # Incubation period, days
 IncubPeriod = runif(n=1, min=0.9*IncubPeriod, max=1.1*IncubPeriod)
-DurMildInf = 6   # Duration of mild infections
+DurMildInf = 6 # Duration of mild infections (days)
 DurMildInf = runif(n=1, min=0.9*DurMildInf, max=1.1*DurMildInf)
 FracSevere = 15 / 100 # Fraction of infections that are severe
 FracSevere = runif(n=1, min=0.9*FracSevere, max=1.1*FracSevere)
@@ -37,9 +38,9 @@ TimeICUDeath = 8 # Time from ICU admission to death, days
 TimeICUDeath = runif(n=1, min=0.9*TimeICUDeath, max=1.1*TimeICUDeath)
 DurHosp = 6 # Duration of hospitalization (severe infections), days
 DurHosp = runif(n=1, min=0.9*DurHosp, max=1.1*DurHosp)
-N.start = 1000 # population size
-starting.probs = c(0.99,0.01,0.00) # Starting probabilities to seed outbreak in states Susceptible, Exposed and Mild
-b1 = 0.33 # Transmission rate (mild infections)
+N.start = 2000 # population size
+starting.numbers = 5 # starting number in exposed
+b1 = 0.5 # Transmission rate (mild infections)
 b1 = runif(n=1, min=0.9*b1, max=1.1*b1)
 b21 = 0.1 # Transmission rate (severe infections, relative to mild)
 b21 = runif(n=1, min=0.9*b21, max=1.1*b21)
@@ -49,6 +50,12 @@ max.day = 200 # maximum day to run simulation to
 # hospital parameters:
 qld.pop = 5115451
 presentHOther = 180830
+daily.prob.mild = 0.05 # daily probability that mild case presents to hospital
+# seasonal parameters:
+seas.amp = 20 / 100 # proportional amplitude
+seas.amp = runif(n=1, min=0.9*seas.amp, max=1.1*seas.amp)
+seas.phase = as.numeric(as.Date('2020-06-01')) # peak seasonal time
+seas.phase = seas.phase + round(runif(n=1, min=-10, max=10)) # randomly move by plus/minus days
 
 # quick check of death rate
 u = (1/TimeICUDeath)*(CFR/FracCritical)
@@ -56,7 +63,7 @@ u = (1/TimeICUDeath)*(CFR/FracCritical)
 # Set simulation period
 maxAge <- 105 # maximum age
 sex <- c("m",'f') # 
-first.date = "01/01/2020"
+first.date = "01/02/2020" # date of first exposed
 # set initial simulation horizon
 days = 0
 start.date = format(as.Date(first.date, format='%d/%m/%Y') + days, '%d/%m/%Y') # add days, then convert back to character
@@ -81,7 +88,7 @@ birthDates <- dates(as.numeric(as.Date(start.date,'%d/%m/%Y')) - 365.25*sampled.
 
 # create initial population
 initPop <- data.frame(ID=1:N.start, birthDate=birthDates, initState=sapply(birthDates, getRandInitState), stringsAsFactors = FALSE)
-initPop$initState[1:5] = 'm/E' # temporary, first 5 exposed
+initPop$initState[1:starting.numbers] = paste(sample(c('f','m'), size=starting.numbers, replace=TRUE), '/E', sep='') # these are the initial number exposed
 # convert character format of birthDate to chron
 initPop <- transform(initPop, birthDate = dates(chron(birthDate, format = c(dates = "d/month/Y"), out.format = c(dates="d/m/year"))))
 
@@ -149,5 +156,6 @@ meta = list("IncubPeriod"=IncubPeriod,"DurMildInf"=DurMildInf,"FracSevere"=FracS
                   "FracCritical"=FracCritical,"ProbDeath"=ProbDeath,"DurHosp"=DurHosp,
                   "TimeICUDeath"=TimeICUDeath,"N.start"=N.start, 'first.date'=first.date, 
             'b1'=b1,'b21'=b21,'b31'=b31,
-                  'max.day'=max.day, 'starting.probs'=starting.probs)
+            'seas.amp'= seas.amp, 'seas.phase' = as.Date(seas.phase, origin='1970-01-01'),
+                  'max.day'=max.day, 'starting.numbers'=starting.numbers)
 save(transitions, meta, file=outfile)

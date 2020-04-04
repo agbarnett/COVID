@@ -14,7 +14,7 @@ for (k in 1:50){
   all_results = bind_rows(all_results, transitions) # concatenate results
 }
 # remove handful of transitions from D
-all_results = filter(all_results, From != 'D')
+#all_results = filter(all_results, From != 'D')
 
 # save big file
 save(all_results, meta, file='data/all_results_vary.RData')
