@@ -37,15 +37,17 @@ I1.2.I2 <- function(age, calTime, duration){
 
 # I2 to I3 (sever to critical)
 I2.2.I3 <- function(age, calTime, duration){
+  age.curve = 1 # off for now
   p2 = (1/DurHosp)*(FracCritical/(FracSevere+FracCritical))
-  rate = p2 * 365 # 'p2' in Alison's model
+  rate = p2 * 365 * age.curve # 'p2' in Alison's model
   return(rate)
 }
 
 # I1 to R (mild to recovered)
 I1.2.R <- function(age, calTime, duration){
+  age.curve = 1 + ((age - 50)/10)*(-0.15) # higher rate of recovery in younger people
   g1 = (1/DurMildInf)*FracMild
-  rate = g1 * 365 # 'g1' in Alison's model
+  rate = g1 * 365 * age.curve # 'g1' in Alison's model
   return(rate)
 }
 
@@ -71,24 +73,26 @@ I2.2.R <- function(age, calTime, duration){
 
 # I3 to R  (critical to recovered)
 I3.2.R <- function(age, calTime, duration){
+  age.curve = 1 + ((age - 50)/10)*(-0.15) # higher rate of recovery in younger people
   if(FracCritical==0){
     u=0
   }else{
     u=(1/TimeICUDeath)*(CFR/FracCritical)
   }
   g3 = (1/TimeICUDeath) - u
-  rate = g3 * 365 # 'g3' in Alison's model
+  rate = g3 * 365 * age.curve # 'g3' in Alison's model
   return(rate)
 }
 
 # I3 to D
 I3.2.D <- function(age, calTime, duration){
+  age.curve = 1 # keep at 1 for now
   if(FracCritical==0){
     u=0
     }else{
     u = (1/TimeICUDeath)*(CFR/FracCritical)
     }
-  rate <- u * 365 # u (mu) in Alison's model
+  rate <- u * 365 * age.curve # u (mu) in Alison's model
   return(rate)
 }
 
@@ -135,15 +139,10 @@ HR.2.R <- function(age, calTime, duration){
   return(rate)
 }
 
-## exposed to hospital
-
-## mild to hospital
-
 ## long-term annual mortality rates (function of age, same for men and women)
 mortRates <- function(age, calTime, duration){
   a <- 0.00003
   b <- 0.097
   rate <- a*exp(b*age)
-  rate = 0 # ignore deaths
   return(rate)
 }

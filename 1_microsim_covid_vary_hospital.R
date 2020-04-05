@@ -1,8 +1,9 @@
 # 1_microsim_covid_vary_hospital.R
 # run the COVID model using microsimulation based on a model using ODEs
-# version with varying parameters
-# version that looks at the impact on the hospital
-# version with seasonal infection risk
+# - varying parameters
+# - looks at the impact on the hospital
+# - seasonal infection risk
+# - with random imported cases over time
 # lyra version
 # March 2020
 #library(MicSim) # using my slightly modified versions
@@ -21,7 +22,7 @@ source('https://github.com/cran/MicSim/raw/master/R/auxFctMicSim.r') # from gith
 # save results here
 if(exists('outfile')==FALSE){outfile = 'data/simresults.RData'}
 
-# key parameters
+## key parameters:
 IncubPeriod = 5 # Incubation period, days
 IncubPeriod = runif(n=1, min=0.9*IncubPeriod, max=1.1*IncubPeriod)
 DurMildInf = 6 # Duration of mild infections (days)
@@ -38,9 +39,9 @@ TimeICUDeath = 8 # Time from ICU admission to death, days
 TimeICUDeath = runif(n=1, min=0.9*TimeICUDeath, max=1.1*TimeICUDeath)
 DurHosp = 6 # Duration of hospitalization (severe infections), days
 DurHosp = runif(n=1, min=0.9*DurHosp, max=1.1*DurHosp)
-N.start = 2000 # population size
-starting.numbers = 5 # starting number in exposed
-b1 = 0.5 # Transmission rate (mild infections)
+N.pop = 1000 # population size
+starting.numbers = 3 # starting number in exposed
+b1 = 0.33 # Transmission rate (mild infections)
 b1 = runif(n=1, min=0.9*b1, max=1.1*b1)
 b21 = 0.1 # Transmission rate (severe infections, relative to mild)
 b21 = runif(n=1, min=0.9*b21, max=1.1*b21)
@@ -56,6 +57,9 @@ seas.amp = 20 / 100 # proportional amplitude
 seas.amp = runif(n=1, min=0.9*seas.amp, max=1.1*seas.amp)
 seas.phase = as.numeric(as.Date('2020-06-01')) # peak seasonal time
 seas.phase = seas.phase + round(runif(n=1, min=-10, max=10)) # randomly move by plus/minus days
+# new cases
+new.cases = 50 # number of new cases to add over time
+prob.new.case = new.cases / max.day # calculate daily probability of new case
 
 # quick check of death rate
 u = (1/TimeICUDeath)*(CFR/FracCritical)
@@ -77,20 +81,26 @@ absStates <- c("dead") # absorbing states; no migration
 
 ## Definition of an initial population 
 # Use a randomly-generated population
-# a) random uniform
-initBirthDatesRange <- chron(dates=c("31/12/1930", "31/12/2007"), format=c(dates="d/m/Y"), 
-                             out.format=c(dates="d/m/year"))
-birthDates <- dates(initBirthDatesRange[1] + runif(N.start, min=0, max=diff(initBirthDatesRange)))
+# a) random uniform - not used
+#initBirthDatesRange <- chron(dates=c("31/12/1930", "31/12/2007"), format=c(dates="d/m/Y"), 
+#                             out.format=c(dates="d/m/year"))
+#birthDates <- dates(initBirthDatesRange[1] + runif(N.pop, min=0, max=diff(initBirthDatesRange)))
 # b) matching the Australian adult population
 load('data/AusPop.RData')
-sampled.ages = base::sample(ages$age, replace=TRUE, size=N.start, prob = ages$p)
+sampled.ages = base::sample(ages$age, replace=TRUE, size=N.pop, prob = ages$p)
 birthDates <- dates(as.numeric(as.Date(start.date,'%d/%m/%Y')) - 365.25*sampled.ages)
 
 # create initial population
-initPop <- data.frame(ID=1:N.start, birthDate=birthDates, initState=sapply(birthDates, getRandInitState), stringsAsFactors = FALSE)
+initPop <- data.frame(ID=1:N.pop, birthDate=birthDates, initState=sapply(birthDates, getRandInitState), stringsAsFactors = FALSE)
 initPop$initState[1:starting.numbers] = paste(sample(c('f','m'), size=starting.numbers, replace=TRUE), '/E', sep='') # these are the initial number exposed
 # convert character format of birthDate to chron
 initPop <- transform(initPop, birthDate = dates(chron(birthDate, format = c(dates = "d/month/Y"), out.format = c(dates="d/m/year"))))
+
+# Add new cases (e.g., overseas arrivals)
+sampled.ages = base::sample(ages$age, replace=TRUE, size=new.cases, prob = ages$p)
+birthDates <- dates(as.numeric(as.Date(start.date,'%d/%m/%Y')) - 365.25*sampled.ages)
+newCases <- data.frame(ID=(N.pop+1):(N.pop+new.cases), birthDate=birthDates, initState=sapply(birthDates, getRandInitState), stringsAsFactors = FALSE)
+newCases$initState = gsub(newCases$initState, pattern='/[A-Z]', replacement='/E') # all exposed
 
 ## Transition pattern and assignment of functions specifying transition rates
 sicktrMatrix <- cbind(c("m/S->m/E", "m/S->m/HS", "m/HS->m/S", "m/R->m/HR", "m/HR->m/R", "m/E->m/HE", "m/HE->m/E", "m/I1->m/H1", "m/H1->m/I1", "m/E->m/I1", "m/I1->m/I2", "m/I2->m/I3", "m/I1->m/R", "m/I2->m/R", "m/I3->m/R", "m/I3->m/D",
@@ -106,8 +116,9 @@ transitionMatrix <- buildTransitionMatrix(allTransitions=allTransitions, absTran
 
 # loop through days
 transitions = NULL
+new.cases.count = 0
 for (days in 0:max.day){
-  if(days%%10==0){cat('Day =', days, '.\n', sep='')} # 
+  if(days%%10==0){cat('Day =', days, '.\n', sep='')} # ticker
   
   start.date = format(as.Date(first.date, format='%d/%m/%Y') + days, '%d/%m/%Y') # add days, then convert back to character
   end.date = format(as.Date(first.date, format='%d/%m/%Y') + days + 1, '%d/%m/%Y') # add days, then convert back to character
@@ -125,27 +136,35 @@ for (days in 0:max.day){
     initPop$update[is.na(initPop$To)==FALSE] = initPop$To[is.na(initPop$To)==FALSE] # update if changed
     initPop = initPop[, c('ID','birthDate','update')]
     names(initPop)[3] = 'initState'
+    index = initPop$initState %in% c('dead') # remove deaths 
+    initPop = initPop[!index,]
+    
+  }
+  
+  # randomly add new cases
+  unif = runif(1)
+  if(unif < prob.new.case){
+    new.cases.count = new.cases.count + 1
+    if(new.cases.count <= new.cases){ # only if new cases are not yet exhausted
+      initPop = rbind(initPop, newCases[new.cases.count,])
+    }
   }
 
-  # break out of loop if population is depleted
-  N = nrow(initPop) # update population size (account for losses to death and recovery)
-  cat('N=', N,'\n')
-  if(N==1){break}
-  
   # update daily I1 to I3 numbers
   I1 = length(grep('I1',initPop$initState))
   I2 = length(grep('I2',initPop$initState))
   I3 = length(grep('I3',initPop$initState))
   I.numbers = c(I1, I2, I3)
+  N = nrow(initPop) # update population numbers
   
 # Run microsimulation 
   pop <- micSim(initPop=initPop, immigrPop=NULL, transitionMatrix=transitionMatrix, 
                       absStates=absStates, initStates=NULL, initStatesProb=NULL, 
                       maxAge=maxAge, simHorizon=simHorizon)
   # concatenate transitions (different in lyra)
-  index = is.na(pop$From) == FALSE
-  if(sum(index)>0){
-    to.add = pop[index,]
+  index = is.na(pop$From) == FALSE # only add observed transitions
+  if(sum(index) > 0){
+    to.add = pop[index, ]
     to.add$day = days
     transitions = rbind(transitions, to.add)
   }
@@ -154,7 +173,8 @@ for (days in 0:max.day){
 # save the results and meta-data on the parameters
 meta = list("IncubPeriod"=IncubPeriod,"DurMildInf"=DurMildInf,"FracSevere"=FracSevere,
                   "FracCritical"=FracCritical,"ProbDeath"=ProbDeath,"DurHosp"=DurHosp,
-                  "TimeICUDeath"=TimeICUDeath,"N.start"=N.start, 'first.date'=first.date, 
+                  "TimeICUDeath"=TimeICUDeath,"N.pop"=N.pop, 'first.date'=first.date, 
+'new.cases'=new.cases,
             'b1'=b1,'b21'=b21,'b31'=b31,
             'seas.amp'= seas.amp, 'seas.phase' = as.Date(seas.phase, origin='1970-01-01'),
                   'max.day'=max.day, 'starting.numbers'=starting.numbers)
