@@ -129,14 +129,17 @@ age.mean = group_by(transitions, simnum, From, To) %>%
 # plot, first remove hospital transitions
 for.plot = filter(age.mean,
                   !From %in% c('HR','HS','HE','H1','R','S'),
-                  !To %in% c('HR','HS','HE','H1','S')) %>%
-  mutate(ToNice = factor(To, levels=c('E','I1','I2','I3','R','D','HR','HS','H1','HE','dead'), # make nicer labels
+                  !To %in% c('HR','HS','HE','H1','S','dead')) %>% # remove some transitions to neaten plot
+  mutate(
+    FromNice = factor(From, levels=c('E','I1','I2','I3','R','D','HR','HS','H1','HE','dead'), # make nicer labels
+                    labels = c('Exposed','Mild\ninfection','Severe\ninfection','Critical\ninfection','Recovered','Died - COVID','Hospital R','Hospital S','Hospital I1','Hospital E','Died - Other')),
+    ToNice = factor(To, levels=c('E','I1','I2','I3','R','D','HR','HS','H1','HE','dead'), # make nicer labels
                          labels = c('Exposed','Mild infection','Severe infection','Critical infection','Recovered','Died - COVID','Hospital R','Hospital S','Hospital I1','Hospital E','Died - Other'))) 
-age.box = ggplot(data=for.plot, aes(x=factor(From), y=mean, fill=factor(ToNice)))+
+age.box = ggplot(data=for.plot, aes(x=FromNice, y=mean, fill=ToNice))+
   geom_boxplot()+
-  scale_fill_manual(NULL, values=cbPalette)+
+  scale_fill_manual('Transition to', values=cbPalette)+
   ylab('Age')+
-  xlab('From')
+  xlab('Transition from')
 age.box
 #
 jpeg('figures/mean.age.transition.jpg', width=5, height=4, units='in', res=300)

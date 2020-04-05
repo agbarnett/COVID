@@ -5,13 +5,13 @@
 # - seasonal infection risk
 # - with random imported cases over time
 # lyra version
-# March 2020
+# April 2020
 #library(MicSim) # using my slightly modified versions
 library(chron)
 library(snowfall)
 library(snow)
 library(rlecuyer)
-#library(stringr)
+#library(stringr) # not for lyra
 #library(dplyr) # not for lyra
 source('99_functions.micsim.R') # functions to start micsim
 source('99_functions.micsim.rates.R') # functions for transition rates
@@ -57,6 +57,8 @@ seas.amp = 20 / 100 # proportional amplitude
 seas.amp = runif(n=1, min=0.9*seas.amp, max=1.1*seas.amp)
 seas.phase = as.numeric(as.Date('2020-06-01')) # peak seasonal time
 seas.phase = seas.phase + round(runif(n=1, min=-10, max=10)) # randomly move by plus/minus days
+# age-dependent parameter
+age.slope = -0.15 # slope in recovery rates dependent on age, per 10 year increase, centred at age 50
 # new cases
 new.cases = 50 # number of new cases to add over time
 prob.new.case = new.cases / max.day # calculate daily probability of new case
@@ -174,7 +176,7 @@ for (days in 0:max.day){
 meta = list("IncubPeriod"=IncubPeriod,"DurMildInf"=DurMildInf,"FracSevere"=FracSevere,
                   "FracCritical"=FracCritical,"ProbDeath"=ProbDeath,"DurHosp"=DurHosp,
                   "TimeICUDeath"=TimeICUDeath,"N.pop"=N.pop, 'first.date'=first.date, 
-'new.cases'=new.cases,
+'new.cases'=new.cases, age.slope = 'age.slope',
             'b1'=b1,'b21'=b21,'b31'=b31,
             'seas.amp'= seas.amp, 'seas.phase' = as.Date(seas.phase, origin='1970-01-01'),
                   'max.day'=max.day, 'starting.numbers'=starting.numbers)

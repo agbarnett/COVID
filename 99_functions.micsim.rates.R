@@ -45,7 +45,7 @@ I2.2.I3 <- function(age, calTime, duration){
 
 # I1 to R (mild to recovered)
 I1.2.R <- function(age, calTime, duration){
-  age.curve = 1 + ((age - 50)/10)*(-0.15) # higher rate of recovery in younger people
+  age.curve = 1 + ((age - 50)/10)*age.slope # higher rate of recovery in younger people
   g1 = (1/DurMildInf)*FracMild
   rate = g1 * 365 * age.curve # 'g1' in Alison's model
   return(rate)
@@ -73,7 +73,7 @@ I2.2.R <- function(age, calTime, duration){
 
 # I3 to R  (critical to recovered)
 I3.2.R <- function(age, calTime, duration){
-  age.curve = 1 + ((age - 50)/10)*(-0.15) # higher rate of recovery in younger people
+  age.curve = 1 + ((age - 50)/10)*age.slope # higher rate of recovery in younger people
   if(FracCritical==0){
     u=0
   }else{
