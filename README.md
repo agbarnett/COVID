@@ -5,4 +5,9 @@ Microsimulation version of the ordinary differential equations by [Alison Hill](
 
 Predominantly uses the R package [MicSim](https://cran.r-project.org/web/packages/MicSim/index.html) for microsimulations.
 
-This is a simplistic model of reality and all estimates should be treated with caution. 
+Includes:
+* seasonal transmission
+* age-dependent recovery and death
+* random importated cases over time
+
+**This is a simplistic model of reality and all estimates should be treated with caution.**
