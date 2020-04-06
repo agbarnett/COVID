@@ -13,7 +13,7 @@ S.2.E <- function(age, calTime, duration){
   I1 = I.numbers[1]
   I2 = I.numbers[2]
   I3 = I.numbers[3]
-  B1 = (b1/N) * 365 # Transmission rate (mild infections)
+  B1 = (b1/N.pop) * 365 # Transmission rate (mild infections); use starting population size
   b2 = b21 *B1  # Transmission rate (severe infections, relative to mild)
   b3 = b31 *B1  # Transmission rate (critical infections, relative to mild)
   rate = (B1*I1 + b2*I2 + b3*I3) * seas

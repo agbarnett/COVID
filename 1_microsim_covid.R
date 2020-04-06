@@ -1,5 +1,6 @@
 # 1_microsim_covid.R
 # run the COVID model using microsimulation based on a model using ODEs
+# lyra version
 # March 2020
 #library(MicSim) # using my slightly modified versions
 library(chron)
@@ -7,7 +8,7 @@ library(snowfall)
 library(snow)
 library(rlecuyer)
 #library(stringr)
-library(dplyr)
+#library(dplyr) # not for lyra
 source('99_functions.micsim.R') # functions to start micsim
 source('99_functions.micsim.rates.R') # functions for transition rates
 source('99_micSim.R') # adapted from MicSim by me (Vectorize)
@@ -27,8 +28,8 @@ ProbDeath = 0.4  # Probability of dying given critical infection
 CFR = ProbDeath * FracCritical # Case fatality rate (fraction of infections resulting in death)
 TimeICUDeath = 8 # Time from ICU admission to death, days
 DurHosp = 6 # Duration of hospitalization (severe infections), days
-N.start = 1000 # population size
-starting.probs = c(0.98,0.01,0.01) # Starting probabilities to seed outbreak in states Susceptible, Exposed and Mild
+N.pop = 1000 # population size
+starting.probs = c(0.99,0.01,0.00) # Starting probabilities to seed outbreak in states Susceptible, Exposed and Mild
 b1 = 0.33 # Transmission rate (mild infections)
 b21 = 0.1 # Transmission rate (severe infections, relative to mild)
 b31 = 0.1 # Transmission rate (critical infections, relative to mild)
@@ -57,14 +58,14 @@ absStates <- c("dead") # absorbing states; no migration
 # a) random uniform
 initBirthDatesRange <- chron(dates=c("31/12/1930", "31/12/2007"), format=c(dates="d/m/Y"), 
                              out.format=c(dates="d/m/year"))
-birthDates <- dates(initBirthDatesRange[1] + runif(N.start, min=0, max=diff(initBirthDatesRange)))
+birthDates <- dates(initBirthDatesRange[1] + runif(N.pop, min=0, max=diff(initBirthDatesRange)))
 # b) matching the Australian adult population
 load('data/AusPop.RData')
-sampled.ages = base::sample(ages$age, replace=TRUE, size=N.start, prob = ages$p)
+sampled.ages = base::sample(ages$age, replace=TRUE, size=N.pop, prob = ages$p)
 birthDates <- dates(as.numeric(as.Date(start.date,'%d/%m/%Y')) - 365.25*sampled.ages)
 
 # create initial population
-initPop <- data.frame(ID=1:N.start, birthDate=birthDates, initState=sapply(birthDates, getRandInitState), stringsAsFactors = FALSE)
+initPop <- data.frame(ID=1:N.pop, birthDate=birthDates, initState=sapply(birthDates, getRandInitState), stringsAsFactors = FALSE)
 # convert character format of birthDate to chron
 initPop <- transform(initPop, birthDate = dates(chron(birthDate, format = c(dates = "d/month/Y"), out.format = c(dates="d/m/year"))))
 
@@ -89,46 +90,46 @@ for (days in 0:max.day){
   end.date = format(as.Date(first.date, format='%d/%m/%Y') + days + 1, '%d/%m/%Y') # add days, then convert back to character
   simHorizon <- setSimHorizon(startDate=start.date, endDate=end.date)
   
-  # dynamically update initial state
+  # dynamically update initial state (different in lyra)
   if(days > 0){
-    initPop = group_by(pop, ID) %>%
-      arrange(ID) %>%
-      slice(n()) %>% # latest transition if two per day
-      mutate(
-        update = ifelse(is.na(To)==TRUE, initState, To)) %>% # leave as before if not moved
-        ungroup() %>%
-        select(-transitionTime, -transitionAge, -From, -To, -initState) %>%
-      rename('initState' = 'update') # rename
-      #filter(!initState %in% c('dead')) # remove deaths 
-      #      filter(!initState %in% c('dead','f/D','f/R','m/D','m/R')) # remove deaths and recovered (no longer need to estimate transitions)
-    initPop = data.frame(initPop) # needs to be a data frame
+    #
+    initPopx = by(pop, pop$ID, tail, n=1) # latest transition if two per day 
+    initPop = NULL # convert list to frame
+    for (j in 1:length(initPopx)){
+      initPop = rbind(initPop, initPopx[[j]])
+    }
+    initPop$update = initPop$initState # start with initial state
+    initPop$update[is.na(initPop$To)==FALSE] = initPop$To[is.na(initPop$To)==FALSE] # update if changed
+    initPop = initPop[, c('ID','birthDate','update')]
+    names(initPop)[3] = 'initState'
+#    index = initPop$initState %in% c('dead') # remove deaths - ignore for now to make it comparable to Alison's work
+#    index = initPop$initState %in% c('dead','f/D','f/R','m/D','m/R')# remove deaths and recovered (no longer need to estimate transitions)
+#    initPop = initPop[!index,]
   }
-  
-  # break out of loop if population is depleted
-  N = nrow(initPop) # update population size (account for losses to death and recovery)
-  cat('N=', N,'\n')
-  if(N==1){break}
-  
+
   # update daily I1 to I3 numbers
   I1 = length(grep('I1',initPop$initState))
   I2 = length(grep('I2',initPop$initState))
   I3 = length(grep('I3',initPop$initState))
   I.numbers = c(I1, I2, I3)
-
+  
 # Run microsimulation 
   pop <- micSim(initPop=initPop, immigrPop=NULL, transitionMatrix=transitionMatrix, 
                       absStates=absStates, initStates=NULL, initStatesProb=NULL, 
                       maxAge=maxAge, simHorizon=simHorizon)
-  # concatenate transitions
-  to.add = filter(pop, !is.na(From)) %>%
-    mutate(day = days)
-  transitions = bind_rows(transitions, to.add)
+  # concatenate transitions (different in lyra)
+  index = is.na(pop$From) == FALSE
+  if(sum(index)>0){
+    to.add = pop[index,]
+    to.add$day = days
+    transitions = rbind(transitions, to.add)
+  }
 }
 
 # save the results and meta-data on the parameters
 meta = list("IncubPeriod"=IncubPeriod,"DurMildInf"=DurMildInf,"FracSevere"=FracSevere,
                   "FracCritical"=FracCritical,"ProbDeath"=ProbDeath,"DurHosp"=DurHosp,
-                  "TimeICUDeath"=TimeICUDeath,"N.start"=N.start, 'first.date'=first.date, 
-                  'b1'=b1,'b21'=b21,'b31'=b31,
-                  'max.day'=max.day, starting.probs=starting.probs)
+                  "TimeICUDeath"=TimeICUDeath,"N.pop"=N.pop, 'first.date'=first.date, 
+            'b1'=b1,'b21'=b21,'b31'=b31,
+                  'max.day'=max.day, 'starting.probs'=starting.probs)
 save(transitions, meta, file=outfile)
