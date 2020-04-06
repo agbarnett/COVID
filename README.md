@@ -8,6 +8,7 @@ Predominantly uses the R package [MicSim](https://cran.r-project.org/web/package
 Includes:
 * seasonal transmission
 * age-dependent recovery and death
-* random importated cases over time
+* random imported cases over time
+* deaths due to other causes
 
 **This is a simplistic model of reality and all estimates should be treated with caution.**
