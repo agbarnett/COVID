@@ -4,6 +4,7 @@
 # - looks at the impact on the hospital
 # - seasonal infection risk
 # - with random imported cases over time
+# - with intervention effects
 # lyra version
 # April 2020
 #library(MicSim) # using my slightly modified versions
@@ -39,7 +40,7 @@ TimeICUDeath = 8 # Time from ICU admission to death, days
 TimeICUDeath = runif(n=1, min=0.9*TimeICUDeath, max=1.1*TimeICUDeath)
 DurHosp = 6 # Duration of hospitalization (severe infections), days
 DurHosp = runif(n=1, min=0.9*DurHosp, max=1.1*DurHosp)
-N.pop = 3000 # population size
+N.pop = 1000 # population size
 starting.numbers = 3 # starting number in exposed
 b1 = 0.33 # Transmission rate (mild infections)
 b1 = runif(n=1, min=0.9*b1, max=1.1*b1)
@@ -62,6 +63,12 @@ age.slope = -0.15 # slope in recovery rates dependent on age, per 10 year increa
 # new cases
 new.cases = 50 # number of new cases to add over time
 prob.new.case = new.cases / max.day # calculate daily probability of new case
+# interventions:
+Tint = 7 # start time of intervention (days)
+Tend = 120 # end time of intervention (days)
+red1 = 80/100 # proportional reduction from mild infections
+red2 = 0/100 # proportional reduction from severe
+red3 = 0/100 # proportional reduction from critical
 
 # quick check of death rate
 u = (1/TimeICUDeath)*(CFR/FracCritical)
@@ -125,6 +132,18 @@ for (days in 0:max.day){
   start.date = format(as.Date(first.date, format='%d/%m/%Y') + days, '%d/%m/%Y') # add days, then convert back to character
   end.date = format(as.Date(first.date, format='%d/%m/%Y') + days + 1, '%d/%m/%Y') # add days, then convert back to character
   simHorizon <- setSimHorizon(startDate=start.date, endDate=end.date)
+
+  # intervention effect
+  if(days < Tint | days > Tend){
+    b1.use = b1 
+    b21.use = b21
+    b31.use = b31
+  }
+  if(days >= Tint & days <= Tend){
+    b1.use = b1 * (1 - red1) 
+    b21.use = b21 * (1 - red2)
+    b31.use = b31 * (1 - red3)
+  }
   
   # dynamically update initial state (different in lyra)
   if(days > 0){
@@ -177,6 +196,7 @@ meta = list("IncubPeriod"=IncubPeriod,"DurMildInf"=DurMildInf,"FracSevere"=FracS
                   "TimeICUDeath"=TimeICUDeath,"N.pop"=N.pop, 'first.date'=first.date, 
 'new.cases'=new.cases, age.slope = 'age.slope',
             'b1'=b1,'b21'=b21,'b31'=b31,
+'Tint' = Tint, 'Tend' = Tend, 'red1' = red1, 'red2'=red2, 'red3'=red3,
             'seas.amp'= seas.amp, 'seas.phase' = as.Date(seas.phase, origin='1970-01-01'),
                   'max.day'=max.day, 'starting.numbers'=starting.numbers)
 save(transitions, meta, file=outfile)
